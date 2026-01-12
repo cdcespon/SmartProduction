@@ -1,0 +1,55 @@
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject ProductService ProductService
+@inject BOMService BOMService
+@inject DialogService DialogService
+
+<RadzenTemplateForm TItem="BOMItem" Data="@item" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem" class="rz-p-4">
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Componente" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenDropDown style="width: 100%;" TValue="int" Data="@availableProducts" TextProperty="Name" ValueProperty="Id" 
+                    @bind-Value="item.ComponentProductId" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Cantidad" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenNumeric style="width: 100%;" TValue="decimal" @bind-Value="item.Quantity" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Merma (%)" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenNumeric style="width: 100%;" TValue="decimal" @bind-Value="item.WastePercentage" Max="100" Min="0" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Agregar" Icon="add_circle" />
+            <RadzenButton Click="@((args) => DialogService.Close(false))" Variant="Variant.Flat" ButtonStyle="ButtonStyle.Light" Text="Cancelar" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public int ParentProductId { get; set; }
+    
+    BOMItem item = new();
+    IEnumerable<Product>? availableProducts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        item.ParentProductId = ParentProductId;
+        availableProducts = (await ProductService.GetProductsAsync()).Where(p => p.Id != ParentProductId);
+    }
+
+    async Task OnSubmit()
+    {
+        await BOMService.AddBOMItemAsync(item);
+        DialogService.Close(true);
+    }
+}

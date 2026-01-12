@@ -1,0 +1,110 @@
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject DialogService DialogService
+@inject ProductService ProductService
+@inject ProductionService ProductionService
+
+<RadzenTemplateForm TItem="WorkOrder" Data="@WorkOrder" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem" class="rz-p-4">
+        
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Producto" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenDropDown style="width: 100%;" TValue="int" Data="@products" TextProperty="Name" ValueProperty="Id" @bind-Value="WorkOrder.ProductId" Change="@OnProductChange" Name="ProductId" />
+                <RadzenRequiredValidator Component="ProductId" Text="Producto requerido" DefaultValue="0" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Cantidad" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenNumeric style="width: 100%;" TValue="decimal" @bind-Value="WorkOrder.Quantity" Min="1" Name="Quantity" />
+                <RadzenRequiredValidator Component="Quantity" Text="Cantidad requerida > 0" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Ruta" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenDropDown style="width: 100%;" TValue="int?" Data="@routings" TextProperty="Name" ValueProperty="Id" @bind-Value="WorkOrder.RoutingId" Placeholder="Seleccionar Ruta..." />
+            </RadzenColumn>
+        </RadzenRow>
+        
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Inicio Planificado" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenDatePicker style="width: 100%;" @bind-Value="WorkOrder.StartDate" ShowTime="false" DateFormat="d" />
+            </RadzenColumn>
+        </RadzenRow>
+        
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Fecha Entrega" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenDatePicker style="width: 100%;" @bind-Value="WorkOrder.DueDate" ShowTime="false" DateFormat="d" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Estado" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenDropDown style="width: 100%;" TValue="WorkOrderStatus" Data="@(Enum.GetValues(typeof(WorkOrderStatus)).Cast<WorkOrderStatus>())" @bind-Value="WorkOrder.Status" />
+            </RadzenColumn>
+        </RadzenRow>
+        
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Notas" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenTextArea style="width: 100%;" @bind-Value="WorkOrder.Notes" Rows="3" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar" Icon="save" />
+            <RadzenButton Click="@((args) => DialogService.Close(false))" Variant="Variant.Flat" ButtonStyle="ButtonStyle.Light" Text="Cancelar" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public WorkOrder WorkOrder { get; set; } = new();
+
+    IEnumerable<Product>? products;
+    IEnumerable<Routing>? routings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        products = await ProductService.GetProductsAsync();
+        
+        if (WorkOrder.ProductId > 0)
+        {
+            await LoadRoutings(WorkOrder.ProductId);
+        }
+    }
+
+    async Task OnProductChange(object value)
+    {
+        if (value is int productId)
+        {
+            await LoadRoutings(productId);
+            // Default select the first active routing if not set
+            if (WorkOrder.RoutingId == null || WorkOrder.RoutingId == 0)
+            {
+                WorkOrder.RoutingId = routings?.FirstOrDefault(r => r.IsActive)?.Id;
+            }
+        }
+        else
+        {
+            routings = new List<Routing>();
+        }
+    }
+    
+    async Task LoadRoutings(int productId)
+    {
+        routings = await ProductionService.GetRoutingsForProductAsync(productId);
+    }
+
+    void OnSubmit()
+    {
+        DialogService.Close(true);
+    }
+}

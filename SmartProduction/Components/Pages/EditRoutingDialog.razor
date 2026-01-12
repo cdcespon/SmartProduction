@@ -1,0 +1,36 @@
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject DialogService DialogService
+
+<RadzenTemplateForm TItem="Routing" Data="@Routing" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem" class="rz-p-4">
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Nombre de Ruta" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenTextBox style="width: 100%;" @bind-Value="Routing.Name" Name="Name" />
+                <RadzenRequiredValidator Component="Name" Text="Nombre requerido" />
+            </RadzenColumn>
+        </RadzenRow>
+        
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Activa" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenCheckBox @bind-Value="Routing.IsActive" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar" Icon="save" />
+            <RadzenButton Click="@((args) => DialogService.Close(false))" Variant="Variant.Flat" ButtonStyle="ButtonStyle.Light" Text="Cancelar" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public Routing Routing { get; set; } = new();
+
+    void OnSubmit()
+    {
+        DialogService.Close(true);
+    }
+}

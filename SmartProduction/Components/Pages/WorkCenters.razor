@@ -1,0 +1,61 @@
+@page "/engineering/work-centers"
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject ProductionService ProductionService
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@rendermode InteractiveServer
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <RadzenText Text="Centros de Trabajo" TextStyle="TextStyle.H4" class="rz-m-0" />
+    <RadzenButton Icon="add_circle_outline" Text="Nuevo Centro" Click="@(args => EditWorkCenter(new WorkCenter()))" />
+</RadzenStack>
+
+<RadzenDataGrid AllowFiltering="true" AllowSorting="true" Data="@workCenters" TItem="WorkCenter" class="rz-shadow-1">
+    <Columns>
+        <RadzenDataGridColumn TItem="WorkCenter" Property="Name" Title="Nombre" />
+        <RadzenDataGridColumn TItem="WorkCenter" Property="CostPerHour" Title="Costo/Hora">
+            <Template Context="wc">
+                @string.Format(new System.Globalization.CultureInfo("en-US"), "{0:C}", wc.CostPerHour)
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="WorkCenter" Property="CapacityPerDay" Title="Capacidad (Horas/Día)" />
+        <RadzenDataGridColumn TItem="WorkCenter" Property="IsActive" Title="Activo">
+             <Template Context="wc">
+                <RadzenBadge BadgeStyle="@(wc.IsActive ? BadgeStyle.Success : BadgeStyle.Danger)" Text="@(wc.IsActive ? "Activo" : "Inactivo")" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="WorkCenter" Filterable="false" Sortable="false" TextAlign="TextAlign.Right" Width="100px">
+            <Template Context="wc">
+                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(args => EditWorkCenter(wc))" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    IEnumerable<WorkCenter>? workCenters;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    async Task LoadData()
+    {
+        workCenters = await ProductionService.GetWorkCentersAsync();
+    }
+
+    async Task EditWorkCenter(WorkCenter wc)
+    {
+        var result = await DialogService.OpenAsync<EditWorkCenterDialog>(
+            wc.Id == 0 ? "Nuevo Centro de Trabajo" : "Editar Centro de Trabajo",
+            new Dictionary<string, object> { { "WorkCenter", wc } });
+
+        if (result == true)
+        {
+            await ProductionService.SaveWorkCenterAsync(wc);
+            await LoadData();
+        }
+    }
+}

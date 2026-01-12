@@ -1,0 +1,90 @@
+@page "/ai/copilot"
+@using SmartProduction.Services
+@inject SmartAssistantService AssistantService
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<RadzenStack Style="height: calc(100vh - 100px); max-width: 800px; margin: 0 auto;">
+    <RadzenText Text="Asistente de Producción (Copilot)" TextStyle="TextStyle.H4" />
+    
+    <RadzenCard Style="flex: 1; overflow-y: auto; padding: 1rem; background-color: #f5f5f5;" class="chat-container">
+        <RadzenStack Gap="1rem">
+            @foreach (var msg in messages)
+            {
+                <div style="@((msg.IsUser ? "align-self: flex-end; background-color: var(--rz-primary); color: white;" : "align-self: flex-start; background-color: white; border: 1px solid #e0e0e0;") + " max-width: 80%;")" 
+                     class="rz-p-3 rz-border-radius-2">
+                    @if (!msg.IsUser)
+                    {
+                        <RadzenMarkdown Content="@msg.Text" />
+                    }
+                    else
+                    {
+                         <RadzenText TextStyle="TextStyle.Body1">@msg.Text</RadzenText>
+                    }
+                </div>
+            }
+            @if (isThinking)
+            {
+               <div style="align-self: flex-start;" class="rz-p-2">
+                   <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+               </div> 
+            }
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+        <RadzenTextBox @bind-Value="currentMessage" Placeholder="Pregunta sobre stock, órdenes o compras..." Style="flex: 1;" @onkeyup="@OnKeyUp" />
+        <RadzenButton Icon="send" Click="@SendMessage" IsBusy="@isThinking" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    string currentMessage = "";
+    bool isThinking = false;
+    List<ChatMessage> messages = new List<ChatMessage>
+    {
+        new ChatMessage { Text = "¡Hola! Soy tu asistente de planta.\nPrueba preguntarme:\n- *¿Cuánto stock tengo de [Producto]?*\n- *¿Qué debo comprar?*\n- *¿Hay órdenes atrasadas?*", IsUser = false }
+    };
+
+    class ChatMessage
+    {
+        public string Text { get; set; } = string.Empty;
+        public bool IsUser { get; set; }
+    }
+
+    async Task OnKeyUp(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await SendMessage();
+        }
+    }
+
+    async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(currentMessage)) return;
+
+        var userMsg = currentMessage;
+        currentMessage = "";
+        messages.Add(new ChatMessage { Text = userMsg, IsUser = true });
+        isThinking = true;
+        StateHasChanged();
+
+        try
+        {
+            // Simular un pequeño delay para "pensar" y que se sienta más natural
+            await Task.Delay(500); 
+            var response = await AssistantService.ProcessQueryAsync(userMsg);
+            messages.Add(new ChatMessage { Text = response, IsUser = false });
+        }
+        catch (Exception ex)
+        {
+             messages.Add(new ChatMessage { Text = "Lo siento, tuve un error procesando tu consulta.", IsUser = false });
+        }
+        finally
+        {
+            isThinking = false;
+            StateHasChanged();
+        }
+    }
+}

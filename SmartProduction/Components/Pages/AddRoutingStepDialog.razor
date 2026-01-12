@@ -1,0 +1,70 @@
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject ProductionService ProductionService
+@inject DialogService DialogService
+
+<RadzenTemplateForm TItem="RoutingStep" Data="@RoutingStep" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem" class="rz-p-4">
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Secuencia" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenNumeric style="width: 100%;" TValue="int" @bind-Value="RoutingStep.Sequence" />
+            </RadzenColumn>
+        </RadzenRow>
+        
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Operación" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenTextBox style="width: 100%;" @bind-Value="RoutingStep.OperationName" Name="Operation" />
+                <RadzenRequiredValidator Component="Operation" Text="Nombre requerido" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Centro de Trabajo" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenDropDown style="width: 100%;" TValue="int" Data="@workCenters" TextProperty="Name" ValueProperty="Id" @bind-Value="RoutingStep.WorkCenterId" />
+            </RadzenColumn>
+        </RadzenRow>
+        
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Tiempo Setup (Min)" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenNumeric style="width: 100%;" TValue="double" @bind-Value="RoutingStep.SetupTimeMinutes" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Tiempo Ejecución (Min)" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenNumeric style="width: 100%;" TValue="double" @bind-Value="RoutingStep.RunTimeMinutes" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar" Icon="save" />
+            <RadzenButton Click="@((args) => DialogService.Close(false))" Variant="Variant.Flat" ButtonStyle="ButtonStyle.Light" Text="Cancelar" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public RoutingStep RoutingStep { get; set; } = new();
+
+    IEnumerable<WorkCenter>? workCenters;
+
+    protected override async Task OnInitializedAsync()
+    {
+        workCenters = await ProductionService.GetWorkCentersAsync();
+        if (RoutingStep.WorkCenterId == 0 && workCenters?.Any() == true)
+        {
+            RoutingStep.WorkCenterId = workCenters.First().Id;
+        }
+    }
+
+    async Task OnSubmit()
+    {
+        await ProductionService.AddRoutingStepAsync(RoutingStep);
+        DialogService.Close(true);
+    }
+}

@@ -1,0 +1,90 @@
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject MasterDataService MasterDataService
+@inject DialogService DialogService
+
+<RadzenTemplateForm TItem="Product" Data="@Product" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem" class="rz-p-4">
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="Cod. Interno (SKU)" Component="SKU" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="8">
+                <RadzenTextBox style="width: 100%;" Name="SKU" @bind-Value="Product.SKU" />
+                <RadzenRequiredValidator Component="SKU" Text="SKU es requerido" />
+            </RadzenColumn>
+        </RadzenRow>
+        
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="Nombre" Component="Name" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="8">
+                <RadzenTextBox style="width: 100%;" Name="Name" @bind-Value="Product.Name" />
+                <RadzenRequiredValidator Component="Name" Text="Nombre es requerido" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="Categoría" Component="CategoryId" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="8">
+                <RadzenDropDown style="width: 100%;" TValue="int" Data="@categories" TextProperty="Name" ValueProperty="Id" @bind-Value="Product.CategoryId" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="Unidad de Medida" Component="UnitOfMeasureId" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="8">
+                <RadzenDropDown style="width: 100%;" TValue="int" Data="@uoms" TextProperty="Name" ValueProperty="Id" @bind-Value="Product.UnitOfMeasureId" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="Costo Estándar" Component="StandardCost" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="8">
+                <RadzenNumeric style="width: 100%;" TValue="decimal" @bind-Value="Product.StandardCost" ShowGreeting="false" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="¿Es Subensamblaje?" Component="IsSubassembly" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="8">
+                <RadzenCheckBox @bind-Value="Product.IsSubassembly" TValue="bool" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar" Icon="save" />
+            <RadzenButton Click="@((args) => DialogService.Close(false))" Variant="Variant.Flat" ButtonStyle="ButtonStyle.Light" Text="Cancelar" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public Product Product { get; set; } = new();
+
+    IEnumerable<Category>? categories;
+    IEnumerable<UnitOfMeasure>? uoms;
+
+    protected override async Task OnInitializedAsync()
+    {
+        categories = await MasterDataService.GetCategoriesAsync();
+        uoms = await MasterDataService.GetUnitsOfMeasureAsync();
+        
+        if (Product.CategoryId == 0 && categories?.Any() == true) Product.CategoryId = categories.First().Id;
+        if (Product.UnitOfMeasureId == 0 && uoms?.Any() == true) Product.UnitOfMeasureId = uoms.First().Id;
+    }
+
+    void OnSubmit(Product model)
+    {
+        DialogService.Close(true);
+    }
+}

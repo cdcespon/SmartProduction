@@ -1,0 +1,75 @@
+@page "/engineering/routing-steps/{RoutingId:int}"
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject ProductionService ProductionService
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start" Gap="1rem" class="rz-mb-4">
+    <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Click="@(() => NavigationManager.NavigateTo($"/engineering/routings/{routing?.ProductId}"))" />
+    <RadzenText Text="@($"Pasos de Ruta: {routing?.Name ?? "Cargando..."}")" TextStyle="TextStyle.H4" class="rz-m-0" />
+</RadzenStack>
+
+<RadzenDataGrid AllowFiltering="false" AllowSorting="true" Data="@routing?.Steps" TItem="RoutingStep" class="rz-shadow-1">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenText Text="Secuencia de Operaciones" TextStyle="TextStyle.Subtitle1" />
+            <RadzenButton Icon="add_task" Text="Agregar Paso" Click="@AddStep" Size="ButtonSize.Small" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <Columns>
+        <RadzenDataGridColumn TItem="RoutingStep" Property="Sequence" Title="Seq" Width="70px" SortOrder="SortOrder.Ascending" />
+        <RadzenDataGridColumn TItem="RoutingStep" Property="OperationName" Title="Operación" />
+        <RadzenDataGridColumn TItem="RoutingStep" Property="WorkCenter.Name" Title="Centro de Trabajo" Width="200px" />
+        <RadzenDataGridColumn TItem="RoutingStep" Property="SetupTimeMinutes" Title="Setup (Min)" Width="120px" />
+        <RadzenDataGridColumn TItem="RoutingStep" Property="RunTimeMinutes" Title="Ejecución (Min)" Width="120px" />
+        <RadzenDataGridColumn TItem="RoutingStep" Filterable="false" Sortable="false" TextAlign="TextAlign.Right" Width="100px">
+            <Template Context="step">
+                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" Click="@(() => DeleteStep(step.Id))" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    [Parameter] public int RoutingId { get; set; }
+
+    Routing? routing;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    async Task LoadData()
+    {
+        routing = await ProductionService.GetRoutingByIdAsync(RoutingId);
+        if (routing != null && routing.Steps != null)
+        {
+            // Ordenar por secuencia
+            routing.Steps = routing.Steps.OrderBy(s => s.Sequence).ToList();
+        }
+    }
+
+    async Task AddStep()
+    {
+        var nextSeq = (routing?.Steps?.Any() == true) ? routing.Steps.Max(s => s.Sequence) + 10 : 10;
+        var newStep = new RoutingStep { RoutingId = RoutingId, Sequence = nextSeq };
+        
+        var result = await DialogService.OpenAsync<AddRoutingStepDialog>("Agregar Paso de Ruta", 
+            new Dictionary<string, object> { { "RoutingStep", newStep } });
+        
+        if (result == true)
+        {
+            await LoadData();
+        }
+    }
+
+    async Task DeleteStep(int stepId)
+    {
+        await ProductionService.DeleteRoutingStepAsync(stepId);
+        await LoadData();
+    }
+}

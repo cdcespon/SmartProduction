@@ -1,0 +1,104 @@
+@page "/planning/mrp"
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject MRPService MRPService
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <RadzenText Text="Planificación de Materiales (MRP)" TextStyle="TextStyle.H4" class="rz-m-0" />
+    <RadzenButton Icon="play_arrow" Text="Ejecutar Planificación" ButtonStyle="ButtonStyle.Success" Click="@RunMRP" IsBusy="@isBusy" />
+</RadzenStack>
+
+@if (lastRunDate.HasValue)
+{
+    <RadzenAlert Severity="AlertSeverity.Info" AllowClose="false" class="rz-mb-4">
+        Última ejecución: @lastRunDate.Value.ToString("g")
+    </RadzenAlert>
+}
+
+<RadzenTabs RenderMode="TabRenderMode.Client">
+    <Tabs>
+        <RadzenTabsItem Text="Para Comprar (Compras)">
+            <RadzenDataGrid AllowFiltering="true" AllowSorting="true" Data="@purchaseRequirements" TItem="MaterialRequirement" class="rz-shadow-1">
+                <Columns>
+                    <RadzenDataGridColumn TItem="MaterialRequirement" Property="Product.SKU" Title="SKU" Width="100px" />
+                    <RadzenDataGridColumn TItem="MaterialRequirement" Property="Product.Name" Title="Materia Prima" />
+                    <RadzenDataGridColumn TItem="MaterialRequirement" Property="RequiredQuantity" Title="Cantidad" Width="120px">
+                        <Template Context="req">
+                            <strong>@req.RequiredQuantity.ToString("N2")</strong> @req.Product?.UnitOfMeasure?.Abbreviation
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="MaterialRequirement" Property="RequiredDate" Title="Fecha Nec." FormatString="{0:d}" Width="120px" />
+                    <RadzenDataGridColumn TItem="MaterialRequirement" Property="Reference" Title="Origen" />
+                    <RadzenDataGridColumn TItem="MaterialRequirement" Filterable="false" Sortable="false" TextAlign="TextAlign.Right" Width="120px">
+                        <Template Context="req">
+                            <RadzenButton Text="Crear OC" Size="ButtonSize.Small" Icon="shopping_cart" Variant="Variant.Flat" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenTabsItem>
+        
+        <RadzenTabsItem Text="Para Fabricar (Producción)">
+            <RadzenDataGrid AllowFiltering="true" AllowSorting="true" Data="@productionRequirements" TItem="MaterialRequirement" class="rz-shadow-1">
+                <Columns>
+                    <RadzenDataGridColumn TItem="MaterialRequirement" Property="Product.SKU" Title="SKU" Width="100px" />
+                    <RadzenDataGridColumn TItem="MaterialRequirement" Property="Product.Name" Title="Subensamble / Prod" />
+                     <RadzenDataGridColumn TItem="MaterialRequirement" Property="RequiredQuantity" Title="Cantidad" Width="120px">
+                        <Template Context="req">
+                            <strong>@req.RequiredQuantity.ToString("N2")</strong> @req.Product?.UnitOfMeasure?.Abbreviation
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="MaterialRequirement" Property="RequiredDate" Title="Fecha Inicio" FormatString="{0:d}" Width="120px" />
+                    <RadzenDataGridColumn TItem="MaterialRequirement" Property="Reference" Title="Origen" />
+                    <RadzenDataGridColumn TItem="MaterialRequirement" Filterable="false" Sortable="false" TextAlign="TextAlign.Right" Width="120px">
+                        <Template Context="req">
+                            <RadzenButton Text="Crear OT" Size="ButtonSize.Small" Icon="precision_manufacturing" Variant="Variant.Flat" ButtonStyle="ButtonStyle.Secondary" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenTabsItem>
+    </Tabs>
+</RadzenTabs>
+
+@code {
+    bool isBusy = false;
+    DateTime? lastRunDate;
+    IEnumerable<MaterialRequirement>? allRequirements;
+    IEnumerable<MaterialRequirement>? purchaseRequirements;
+    IEnumerable<MaterialRequirement>? productionRequirements;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    async Task LoadData()
+    {
+        allRequirements = await MRPService.GetRequirementsAsync();
+        purchaseRequirements = allRequirements.Where(r => r.Type == RequirementType.Purchase);
+        productionRequirements = allRequirements.Where(r => r.Type == RequirementType.Production);
+    }
+
+    async Task RunMRP()
+    {
+        isBusy = true;
+        try
+        {
+            await MRPService.RunMRPAsync();
+            await LoadData();
+            lastRunDate = DateTime.Now;
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "MRP Completado", Detail = "Se han recalculado las necesidades.", Duration = 4000 });
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error MRP", Detail = ex.Message, Duration = 5000 });
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+}

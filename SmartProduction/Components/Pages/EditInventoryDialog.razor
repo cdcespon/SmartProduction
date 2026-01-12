@@ -1,0 +1,28 @@
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject DialogService DialogService
+
+<RadzenStack Gap="1rem" class="rz-p-4">
+    <RadzenRow AlignItems="AlignItems.Center">
+        <RadzenColumn Size="4"><RadzenLabel Text="Stock Físico" /></RadzenColumn>
+        <RadzenColumn Size="8">
+            <RadzenNumeric style="width: 100%;" TValue="decimal" @bind-Value="InventoryItem.QuantityOnHand" />
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenRow AlignItems="AlignItems.Center">
+        <RadzenColumn Size="4"><RadzenLabel Text="Stock de Seguridad" /></RadzenColumn>
+        <RadzenColumn Size="8">
+            <RadzenNumeric style="width: 100%;" TValue="decimal" @bind-Value="InventoryItem.SafetyStock" />
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-4">
+        <RadzenButton Click="@((args) => DialogService.Close(true))" Text="Guardar" Icon="save" />
+        <RadzenButton Click="@((args) => DialogService.Close(false))" Variant="Variant.Flat" ButtonStyle="ButtonStyle.Light" Text="Cancelar" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter] public InventoryItem InventoryItem { get; set; } = new();
+}

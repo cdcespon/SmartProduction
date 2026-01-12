@@ -1,0 +1,79 @@
+@page "/planning/forecast"
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject PredictionService PredictionService
+@inject ProductService ProductService
+@rendermode InteractiveServer
+
+<RadzenStack Orientation="Orientation.Vertical" Gap="2rem">
+    
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenText Text="Predicción de Demanda (IA)" TextStyle="TextStyle.H4" class="rz-m-0" />
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+             <RadzenLabel Text="Producto:" />
+             <RadzenDropDown TValue="int" Data="@products" TextProperty="Name" ValueProperty="Id" @bind-Value="selectedProductId" Change="@OnProductChange" Placeholder="Selecciona un producto..." Style="width: 300px;" />
+        </RadzenStack>
+    </RadzenStack>
+
+    @if (predictionResult != null && predictionResult.Status == "Success")
+    {
+        <RadzenCard>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="2rem">
+                <RadzenStack Gap="0">
+                    <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-2 rz-mb-0">Tendencia Detectada</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1"><b>@predictionResult.Trend</b></RadzenText>
+                </RadzenStack>
+                <RadzenStack Gap="0">
+                     <RadzenText TextStyle="TextStyle.Overline" class="rz-display-flex rz-mt-2 rz-mb-0">Proyección (3 Meses)</RadzenText>
+                     <RadzenText TextStyle="TextStyle.Body1"><b>+@predictionResult.Predictions.Sum(p => p.Quantity).ToString("N0")</b> unidades</RadzenText>
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenChart>
+            <RadzenLineSeries Smooth="true" Data="@predictionResult.History" CategoryProperty="Date" Title="Ventas Históricas" ValueProperty="Quantity" LineType="LineType.Solid">
+                <RadzenMarkers MarkerType="MarkerType.Circle" />
+            </RadzenLineSeries>
+            <RadzenLineSeries Smooth="true" Data="@predictionResult.Predictions" CategoryProperty="Date" Title="Predicción (IA)" ValueProperty="Quantity" LineType="LineType.Dashed" Stroke="var(--rz-series-2)">
+                <RadzenMarkers MarkerType="MarkerType.Diamond" />
+            </RadzenLineSeries>
+            <RadzenCategoryAxis Padding="20" FormatString="{0:MMM yyyy}" />
+            <RadzenValueAxis>
+                <RadzenGridLines Visible="true" />
+                <RadzenAxisTitle Text="Cantidad Vendida / Proyectada" />
+            </RadzenValueAxis>
+        </RadzenChart>
+    }
+    else if (selectedProductId > 0)
+    {
+        <RadzenAlert Severity="AlertSeverity.Warning" AllowClose="false">
+             No hay suficientes datos históricos para generar una predicción confiable.
+        </RadzenAlert>
+    }
+    else
+    {
+         <RadzenAlert Severity="AlertSeverity.Info" AllowClose="false">
+             Selecciona un producto para analizar la tendencia de demanda.
+        </RadzenAlert>
+    }
+
+</RadzenStack>
+
+@code {
+    int selectedProductId;
+    IEnumerable<Product>? products;
+    PredictionResult? predictionResult;
+
+    protected override async Task OnInitializedAsync()
+    {
+        products = await ProductService.GetProductsAsync();
+    }
+
+    async Task OnProductChange()
+    {
+        if (selectedProductId > 0)
+        {
+            predictionResult = await PredictionService.PredictDemandAsync(selectedProductId, 6);
+        }
+    }
+}

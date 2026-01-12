@@ -1,0 +1,50 @@
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject DialogService DialogService
+
+<RadzenTemplateForm TItem="Supplier" Data="@Supplier" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem" class="rz-p-4">
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="Nombre" Component="Name" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="8">
+                <RadzenTextBox style="width: 100%;" Name="Name" @bind-Value="Supplier.Name" />
+                <RadzenRequiredValidator Component="Name" Text="Nombre es requerido" />
+            </RadzenColumn>
+        </RadzenRow>
+        
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="Email de Contacto" Component="Email" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="8">
+                <RadzenTextBox style="width: 100%;" Name="Email" @bind-Value="Supplier.ContactEmail" />
+                <RadzenEmailValidator Component="Email" Text="Email inválido" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="Teléfono" Component="Phone" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="8">
+                <RadzenTextBox style="width: 100%;" Name="Phone" @bind-Value="Supplier.ContactPhone" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar" Icon="save" />
+            <RadzenButton Click="@((args) => DialogService.Close(false))" Variant="Variant.Flat" ButtonStyle="ButtonStyle.Light" Text="Cancelar" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public Supplier Supplier { get; set; } = new();
+
+    void OnSubmit(Supplier model)
+    {
+        DialogService.Close(true);
+    }
+}

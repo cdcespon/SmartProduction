@@ -1,0 +1,50 @@
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject DialogService DialogService
+
+<RadzenTemplateForm TItem="WorkCenter" Data="@WorkCenter" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem" class="rz-p-4">
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Nombre" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenTextBox style="width: 100%;" @bind-Value="WorkCenter.Name" Name="Name" />
+                <RadzenRequiredValidator Component="Name" Text="Nombre requerido" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Costo por Hora" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenNumeric style="width: 100%;" TValue="decimal" @bind-Value="WorkCenter.CostPerHour" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Capacidad Diaria (Horas)" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenNumeric style="width: 100%;" TValue="decimal" @bind-Value="WorkCenter.CapacityPerDay" />
+            </RadzenColumn>
+        </RadzenRow>
+        
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="4"><RadzenLabel Text="Activo" /></RadzenColumn>
+            <RadzenColumn Size="8">
+                <RadzenCheckBox @bind-Value="WorkCenter.IsActive" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar" Icon="save" />
+            <RadzenButton Click="@((args) => DialogService.Close(false))" Variant="Variant.Flat" ButtonStyle="ButtonStyle.Light" Text="Cancelar" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    [Parameter] public WorkCenter WorkCenter { get; set; } = new();
+
+    void OnSubmit()
+    {
+        DialogService.Close(true);
+    }
+}

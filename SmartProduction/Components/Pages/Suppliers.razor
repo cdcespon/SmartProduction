@@ -1,0 +1,70 @@
+@page "/suppliers"
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject SupplierService SupplierService
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <RadzenText Text="Gestión de Proveedores" TextStyle="TextStyle.H4" class="rz-m-0" />
+    <RadzenButton Icon="add_circle_outline" Text="Nuevo Proveedor" Click="@(args => EditSupplier(new Supplier()))" />
+</RadzenStack>
+
+<RadzenDataGrid AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false" FilterMode="FilterMode.Advanced" AllowSorting="true" PageSize="10" AllowPaging="true" PagerHorizontalAlign="HorizontalAlign.Left" ShowPagingSummary="true"
+    Data="@suppliers" TItem="Supplier" ColumnWidth="300px" SelectionMode="DataGridSelectionMode.Single">
+    <Columns>
+        <RadzenDataGridColumn TItem="Supplier" Property="Name" Title="Nombre" Width="200px" />
+        <RadzenDataGridColumn TItem="Supplier" Property="ContactEmail" Title="Email" Width="200px" />
+        <RadzenDataGridColumn TItem="Supplier" Property="ContactPhone" Title="Teléfono" Width="150px" />
+        <RadzenDataGridColumn TItem="Supplier" Filterable="false" Sortable="false" TextAlign="TextAlign.Right" Width="140px">
+            <Template Context="supplier">
+                <RadzenButton Icon="list" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(args => NavigationManager.NavigateTo($"/suppliers/products/{supplier.Id}"))" @onclick:stopPropagation="true" Tooltip="Gestionar Catálogo" />
+                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" class="rz-ms-1" Click="@(args => EditSupplier(supplier))" @onclick:stopPropagation="true" />
+                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-ms-1" Click="@(args => DeleteSupplier(supplier))" @onclick:stopPropagation="true" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    IEnumerable<Supplier>? suppliers;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSuppliers();
+    }
+
+    async Task LoadSuppliers()
+    {
+        suppliers = await SupplierService.GetSuppliersAsync();
+    }
+
+    async Task EditSupplier(Supplier supplier)
+    {
+        var result = await DialogService.OpenAsync<EditSupplierDialog>(
+            supplier.Id == 0 ? "Nuevo Proveedor" : "Editar Proveedor",
+            new Dictionary<string, object> { { "Supplier", supplier } },
+            new DialogOptions { Width = "500px" });
+
+        if (result == true)
+        {
+            await SupplierService.SaveSupplierAsync(supplier);
+            await LoadSuppliers();
+            NotificationService.Notify(new NotificationMessage 
+            { 
+                Severity = NotificationSeverity.Success, 
+                Summary = "Éxito", 
+                Detail = "Proveedor guardado correctamente." 
+            });
+        }
+    }
+
+    async Task DeleteSupplier(Supplier supplier)
+    {
+        await SupplierService.DeleteSupplierAsync(supplier.Id);
+        await LoadSuppliers();
+        NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Éxito", Detail = "Proveedor eliminado." });
+    }
+}

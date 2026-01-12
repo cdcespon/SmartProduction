@@ -1,0 +1,103 @@
+@page "/engineering/bom/{ProductId:int}"
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject BOMService BOMService
+@inject ProductService ProductService
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start" Gap="1rem" class="rz-mb-4">
+    <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Click="@(() => NavigationManager.NavigateTo("/products"))" />
+    <RadzenText Text="@($"Estructura de Producto (BOM): {parentProduct?.Name ?? "Cargando..."}")" TextStyle="TextStyle.H4" class="rz-m-0" />
+</RadzenStack>
+
+<RadzenRow>
+    <RadzenColumn Size="12" SizeMD="4">
+        <RadzenCard Variant="Variant.Flat" class="rz-p-4">
+            <RadzenText Text="Resumen de Costeo" TextStyle="TextStyle.H6" class="rz-mb-2" />
+            <RadzenStack Gap="0.5rem">
+                <RadzenRow>
+                    <RadzenColumn Size="6"><RadzenText Text="Costo Roll-up (IA/Calculado):" TextStyle="TextStyle.Body2" /></RadzenColumn>
+                    <RadzenColumn Size="6" class="rz-text-align-right">
+                        <RadzenText Text="@string.Format(new System.Globalization.CultureInfo("en-US"), "{0:C}", rollupCost)" TextStyle="TextStyle.Subtitle1" Style="color: var(--rz-primary);" />
+                    </RadzenColumn>
+                </RadzenRow>
+                <RadzenRow>
+                    <RadzenColumn Size="6"><RadzenText Text="Costo Estándar:" TextStyle="TextStyle.Body2" /></RadzenColumn>
+                    <RadzenColumn Size="6" class="rz-text-align-right">
+                        <RadzenText Text="@string.Format(new System.Globalization.CultureInfo("en-US"), "{0:C}", parentProduct?.StandardCost ?? 0)" TextStyle="TextStyle.Subtitle2" />
+                    </RadzenColumn>
+                </RadzenRow>
+                <RadzenButton Text="Recalcular Costos" Icon="refresh" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Flat" Click="@RecalculateCost" class="rz-mt-2" />
+            </RadzenStack>
+        </RadzenCard>
+    </RadzenColumn>
+
+    <RadzenColumn Size="12" SizeMD="8">
+        <RadzenDataGrid AllowFiltering="true" AllowSorting="true" Data="@bomItems" TItem="BOMItem" class="rz-shadow-1">
+            <HeaderTemplate>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                    <RadzenText Text="Componentes" TextStyle="TextStyle.Subtitle1" />
+                    <RadzenButton Icon="add_circle" Text="Agregar Componente" Click="@AddMember" Size="ButtonSize.Small" />
+                </RadzenStack>
+            </HeaderTemplate>
+            <Columns>
+                <RadzenDataGridColumn TItem="BOMItem" Property="ComponentProduct.SKU" Title="SKU" Width="120px" />
+                <RadzenDataGridColumn TItem="BOMItem" Property="ComponentProduct.Name" Title="Nombre" />
+                <RadzenDataGridColumn TItem="BOMItem" Property="Quantity" Title="Cantidad" Width="100px" />
+                <RadzenDataGridColumn TItem="BOMItem" Property="ComponentProduct.UnitOfMeasure.Abbreviation" Title="UoM" Width="80px" />
+                <RadzenDataGridColumn TItem="BOMItem" Property="WastePercentage" Title="Merma %" Width="100px" />
+                <RadzenDataGridColumn TItem="BOMItem" Filterable="false" Sortable="false" TextAlign="TextAlign.Right" Width="100px">
+                    <Template Context="item">
+                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" Click="@(() => DeleteItem(item.Id))" />
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenColumn>
+</RadzenRow>
+
+@code {
+    [Parameter] public int ProductId { get; set; }
+
+    Product? parentProduct;
+    IEnumerable<BOMItem>? bomItems;
+    decimal rollupCost;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    async Task LoadData()
+    {
+        var products = await ProductService.GetProductsAsync();
+        parentProduct = products.FirstOrDefault(p => p.Id == ProductId);
+        bomItems = await BOMService.GetBOMForProductAsync(ProductId);
+        await RecalculateCost();
+    }
+
+    async Task RecalculateCost()
+    {
+        rollupCost = await BOMService.CalculateRollupCostAsync(ProductId);
+    }
+
+    async Task AddMember()
+    {
+        var result = await DialogService.OpenAsync<AddBOMItemDialog>("Agregar Componente", 
+            new Dictionary<string, object> { { "ParentProductId", ProductId } });
+        
+        if (result == true)
+        {
+            await LoadData();
+        }
+    }
+
+    async Task DeleteItem(int id)
+    {
+        await BOMService.DeleteBOMItemAsync(id);
+        await LoadData();
+    }
+}

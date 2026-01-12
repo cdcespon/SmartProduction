@@ -1,0 +1,76 @@
+@page "/suppliers/products/{SupplierId:int}"
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject SupplierService SupplierService
+@inject ProductService ProductService
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start" Gap="1rem" class="rz-mb-4">
+    <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Click="@(() => NavigationManager.NavigateTo("/suppliers"))" />
+    <RadzenText Text="@($"Catálogo de Proveedor: {supplier?.Name ?? "Cargando..."}")" TextStyle="TextStyle.H4" class="rz-m-0" />
+</RadzenStack>
+
+<RadzenDataGrid AllowFiltering="true" AllowSorting="true" Data="@supplierProducts" TItem="SupplierProduct" class="rz-shadow-1">
+    <HeaderTemplate>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenText Text="Productos Suministrados" TextStyle="TextStyle.Subtitle1" />
+            <RadzenButton Icon="add_business" Text="Vincular Producto" Click="@AddProductLink" Size="ButtonSize.Small" />
+        </RadzenStack>
+    </HeaderTemplate>
+    <Columns>
+        <RadzenDataGridColumn TItem="SupplierProduct" Property="Product.SKU" Title="SKU Interno" Width="120px" />
+        <RadzenDataGridColumn TItem="SupplierProduct" Property="Product.Name" Title="Nombre Interno" />
+        <RadzenDataGridColumn TItem="SupplierProduct" Property="SupplierSKU" Title="Cod. Proveedor" Width="150px" />
+        <RadzenDataGridColumn TItem="SupplierProduct" Property="PurchasePrice" Title="Precio Compra" Width="120px">
+            <Template Context="sp">
+                @string.Format(new System.Globalization.CultureInfo("en-US"), "{0:C}", sp.PurchasePrice)
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="SupplierProduct" Property="LeadTimeDays" Title="Entrega (Días)" Width="120px" />
+        <RadzenDataGridColumn TItem="SupplierProduct" Filterable="false" Sortable="false" TextAlign="TextAlign.Right" Width="100px">
+            <Template Context="sp">
+                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" Click="@(() => RemoveLink(sp.ProductId))" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    [Parameter] public int SupplierId { get; set; }
+
+    Supplier? supplier;
+    IEnumerable<SupplierProduct>? supplierProducts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    async Task LoadData()
+    {
+        var suppliers = await SupplierService.GetSuppliersAsync();
+        supplier = suppliers.FirstOrDefault(s => s.Id == SupplierId);
+        
+        supplierProducts = await SupplierService.GetSupplierProductsAsync(SupplierId);
+    }
+
+    async Task AddProductLink()
+    {
+        var result = await DialogService.OpenAsync<LinkProductSupplierDialog>("Vincular Producto de Proveedor", 
+            new Dictionary<string, object> { { "SupplierId", SupplierId } });
+        
+        if (result == true)
+        {
+            await LoadData();
+        }
+    }
+
+    async Task RemoveLink(int productId)
+    {
+        await SupplierService.RemoveProductLinkAsync(SupplierId, productId);
+        await LoadData();
+    }
+}

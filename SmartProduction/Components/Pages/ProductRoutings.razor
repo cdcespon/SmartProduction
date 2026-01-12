@@ -1,0 +1,78 @@
+@page "/engineering/routings/{ProductId:int}"
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject ProductionService ProductionService
+@inject ProductService ProductService
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Start" Gap="1rem" class="rz-mb-4">
+    <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Click="@(() => NavigationManager.NavigateTo("/products"))" />
+    <RadzenText Text="@($"Rutas de Producción: {product?.Name ?? "Cargando..."}")" TextStyle="TextStyle.H4" class="rz-m-0" />
+</RadzenStack>
+
+<RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" class="rz-mb-2">
+    <RadzenButton Icon="add_circle" Text="Nueva Ruta" Click="@AddNewRouting" />
+</RadzenStack>
+
+<RadzenDataGrid AllowFiltering="true" AllowSorting="true" Data="@routings" TItem="Routing" class="rz-shadow-1">
+    <Columns>
+        <RadzenDataGridColumn TItem="Routing" Property="Name" Title="Nombre de Ruta" />
+        <RadzenDataGridColumn TItem="Routing" Property="IsActive" Title="Activa" Width="100px">
+            <Template Context="r">
+                <RadzenBadge BadgeStyle="@(r.IsActive ? BadgeStyle.Success : BadgeStyle.Light)" Text="@(r.IsActive ? "Sí" : "No")" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Routing" Filterable="false" Sortable="false" TextAlign="TextAlign.Right" Width="180px">
+            <Template Context="r">
+                <RadzenButton Icon="edit_road" Text="Pasos" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(() => OpenRoutingEditor(r.Id))" />
+                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" class="rz-ms-1" Click="@(() => EditRoutingMetadata(r))" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    [Parameter] public int ProductId { get; set; }
+
+    Product? product;
+    IEnumerable<Routing>? routings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    async Task LoadData()
+    {
+        var products = await ProductService.GetProductsAsync();
+        product = products.FirstOrDefault(p => p.Id == ProductId);
+        routings = await ProductionService.GetRoutingsForProductAsync(ProductId);
+    }
+
+    async Task AddNewRouting()
+    {
+        var newRouting = new Routing { ProductId = ProductId, Name = "Ruta Estándar", IsActive = true };
+        await EditRoutingMetadata(newRouting);
+    }
+
+    async Task EditRoutingMetadata(Routing routing)
+    {
+        var result = await DialogService.OpenAsync<EditRoutingDialog>(
+            routing.Id == 0 ? "Nueva Ruta" : "Editar Ruta",
+            new Dictionary<string, object> { { "Routing", routing } });
+
+        if (result == true)
+        {
+            await ProductionService.SaveRoutingAsync(routing);
+            await LoadData();
+        }
+    }
+
+    void OpenRoutingEditor(int routingId)
+    {
+        NavigationManager.NavigateTo($"/engineering/routing-steps/{routingId}");
+    }
+}

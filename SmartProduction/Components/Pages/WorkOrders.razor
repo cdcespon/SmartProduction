@@ -1,0 +1,84 @@
+@page "/production/work-orders"
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject ProductionService ProductionService
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@rendermode InteractiveServer
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <RadzenText Text="Órdenes de Trabajo" TextStyle="TextStyle.H4" class="rz-m-0" />
+    <RadzenButton Icon="add_circle" Text="Nueva Orden" Click="@(args => EditWorkOrder(new WorkOrder()))" />
+</RadzenStack>
+
+<RadzenDataGrid AllowFiltering="true" AllowSorting="true" Data="@workOrders" TItem="WorkOrder" class="rz-shadow-1">
+    <Columns>
+        <RadzenDataGridColumn TItem="WorkOrder" Property="OrderNumber" Title="Número" Width="140px" />
+        <RadzenDataGridColumn TItem="WorkOrder" Property="Product.Name" Title="Producto" />
+        <RadzenDataGridColumn TItem="WorkOrder" Property="Quantity" Title="Cantidad" Width="100px" />
+        <RadzenDataGridColumn TItem="WorkOrder" Property="Status" Title="Estado" Width="120px">
+            <Template Context="wo">
+                <RadzenBadge BadgeStyle="@GetStatusBadge(wo.Status)" Text="@wo.Status.ToString()" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="WorkOrder" Property="StartDate" Title="Inicio Plan" FormatString="{0:d}" Width="120px" />
+        <RadzenDataGridColumn TItem="WorkOrder" Property="DueDate" Title="Entrega Plan" FormatString="{0:d}" Width="120px" />
+        <RadzenDataGridColumn TItem="WorkOrder" Filterable="false" Sortable="false" TextAlign="TextAlign.Right" Width="120px">
+            <Template Context="wo">
+                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(args => EditWorkOrder(wo))" />
+                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-ms-1" Click="@(args => DeleteWorkOrder(wo))" @onclick:stopPropagation="true" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    IEnumerable<WorkOrder>? workOrders;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    async Task LoadData()
+    {
+        workOrders = await ProductionService.GetWorkOrdersAsync();
+    }
+
+    BadgeStyle GetStatusBadge(WorkOrderStatus status)
+    {
+        return status switch
+        {
+            WorkOrderStatus.Created => BadgeStyle.Light,
+            WorkOrderStatus.Released => BadgeStyle.Info,
+            WorkOrderStatus.Started => BadgeStyle.Warning,
+            WorkOrderStatus.Completed => BadgeStyle.Success,
+            WorkOrderStatus.Cancelled => BadgeStyle.Danger,
+            _ => BadgeStyle.Secondary
+        };
+    }
+
+    async Task EditWorkOrder(WorkOrder wo)
+    {
+        var result = await DialogService.OpenAsync<EditWorkOrderDialog>(
+            wo.Id == 0 ? "Nueva Orden de Trabajo" : "Editar Orden " + wo.OrderNumber,
+            new Dictionary<string, object> { { "WorkOrder", wo } });
+
+        if (result == true)
+        {
+            await ProductionService.SaveWorkOrderAsync(wo);
+            await LoadData();
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Éxito", Detail = "Orden guardada correctamente", Duration = 3000 });
+        }
+    }
+
+    async Task DeleteWorkOrder(WorkOrder wo)
+    {
+        var confirm = await DialogService.Confirm("¿Está seguro de eliminar la orden " + wo.OrderNumber + "?", "Eliminar Orden", new ConfirmOptions() { OkButtonText = "Sí", CancelButtonText = "No" });
+        if (confirm == true)
+        {
+            await ProductionService.DeleteWorkOrderAsync(wo.Id);
+            await LoadData();
+        }
+    }
+}

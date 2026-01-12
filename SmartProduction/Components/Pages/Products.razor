@@ -1,0 +1,82 @@
+@page "/products"
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject ProductService ProductService
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <RadzenText Text="Maestro de Productos" TextStyle="TextStyle.H4" class="rz-m-0" />
+    <RadzenButton Icon="add_circle_outline" Text="Nuevo Producto" Click="@(args => EditProduct(new Product()))" />
+</RadzenStack>
+
+<RadzenDataGrid AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false" FilterMode="FilterMode.Advanced" AllowSorting="true" PageSize="10" AllowPaging="true" PagerHorizontalAlign="HorizontalAlign.Left" ShowPagingSummary="true"
+    Data="@products" TItem="Product" ColumnWidth="300px" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single">
+    <Columns>
+        <RadzenDataGridColumn TItem="Product" Property="SKU" Title="Cod. Interno" Width="120px" />
+        <RadzenDataGridColumn TItem="Product" Property="Name" Title="Nombre" Width="200px" />
+        <RadzenDataGridColumn TItem="Product" Property="Category.Name" Title="Categoría" Width="150px" />
+        <RadzenDataGridColumn TItem="Product" Property="UnitOfMeasure.Abbreviation" Title="UoM" Width="80px" />
+        <RadzenDataGridColumn TItem="Product" Property="StandardCost" Title="Costo Std" Width="120px">
+            <Template Context="product">
+                @string.Format(new System.Globalization.CultureInfo("en-US"), "{0:C}", product.StandardCost)
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Product" Property="IsSubassembly" Title="Subensamblaje" Width="120px">
+            <Template Context="product">
+                <RadzenBadge BadgeStyle="@(product.IsSubassembly ? BadgeStyle.Info : BadgeStyle.Secondary)" Text="@(product.IsSubassembly ? "SÍ" : "NO")" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Product" Filterable="false" Sortable="false" TextAlign="TextAlign.Right" Width="190px">
+            <Template Context="product">
+                <RadzenButton Icon="alt_route" ButtonStyle="ButtonStyle.Info" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(args => NavigationManager.NavigateTo($"/engineering/routings/{product.Id}"))" @onclick:stopPropagation="true" Tooltip="Rutas de Producción" class="rz-me-1" />
+                <RadzenButton Icon="engineering" ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(args => NavigationManager.NavigateTo($"/engineering/bom/{product.Id}"))" @onclick:stopPropagation="true" Tooltip="Gestionar BOM" />
+                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" class="rz-ms-1" Click="@(args => EditProduct(product))" @onclick:stopPropagation="true" />
+                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-ms-1" Click="@(args => DeleteProduct(product))" @onclick:stopPropagation="true" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    IEnumerable<Product>? products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProducts();
+    }
+
+    async Task LoadProducts()
+    {
+        products = await ProductService.GetProductsAsync();
+    }
+
+    async Task EditProduct(Product product)
+    {
+        var result = await DialogService.OpenAsync<EditProductDialog>(
+            product.Id == 0 ? "Nuevo Producto" : "Editar Producto",
+            new Dictionary<string, object> { { "Product", product } },
+            new DialogOptions { Width = "600px" });
+
+        if (result == true)
+        {
+            await ProductService.SaveProductAsync(product);
+            await LoadProducts();
+            NotificationService.Notify(new NotificationMessage 
+            { 
+                Severity = NotificationSeverity.Success, 
+                Summary = "Éxito", 
+                Detail = "Producto guardado correctamente." 
+            });
+        }
+    }
+
+    async Task DeleteProduct(Product product)
+    {
+        // TODO: Confirmación
+        await ProductService.DeleteProductAsync(product.Id);
+        await LoadProducts();
+    }
+}

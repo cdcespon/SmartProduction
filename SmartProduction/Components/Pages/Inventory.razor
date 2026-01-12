@@ -1,0 +1,65 @@
+@page "/inventory"
+@using SmartProduction.Models
+@using SmartProduction.Services
+@inject InventoryService InventoryService
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@rendermode InteractiveServer
+
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-4">
+    <RadzenText Text="Inventario Actual" TextStyle="TextStyle.H4" class="rz-m-0" />
+    <RadzenButton Icon="refresh" ButtonStyle="ButtonStyle.Light" Click="@LoadData" />
+</RadzenStack>
+
+<RadzenDataGrid AllowFiltering="true" AllowSorting="true" Data="@inventoryItems" TItem="InventoryItem" class="rz-shadow-1">
+    <Columns>
+        <RadzenDataGridColumn TItem="InventoryItem" Property="Product.SKU" Title="SKU" Width="120px" />
+        <RadzenDataGridColumn TItem="InventoryItem" Property="Product.Name" Title="Producto" />
+        <RadzenDataGridColumn TItem="InventoryItem" Property="Product.UnitOfMeasure.Abbreviation" Title="Unidad" Width="80px" />
+        
+        <RadzenDataGridColumn TItem="InventoryItem" Property="QuantityOnHand" Title="Stock Físico" Width="120px">
+            <Template Context="item">
+                <RadzenText Text="@item.QuantityOnHand.ToString("N2")" TextStyle="TextStyle.Body1" class="rz-m-0" />
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn TItem="InventoryItem" Property="SafetyStock" Title="Stock Seguridad" Width="140px" />
+
+        <RadzenDataGridColumn TItem="InventoryItem" Property="LastUpdated" Title="Última Actualización" FormatString="{0:g}" Width="180px" />
+
+        <RadzenDataGridColumn TItem="InventoryItem" Filterable="false" Sortable="false" TextAlign="TextAlign.Right" Width="100px">
+            <Template Context="item">
+                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(args => EditInventory(item))" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    IEnumerable<InventoryItem>? inventoryItems;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    async Task LoadData()
+    {
+        inventoryItems = await InventoryService.GetInventoryItemsAsync();
+    }
+
+    async Task EditInventory(InventoryItem item)
+    {
+        // Simple inline dialog mechanism or separate component? 
+        // For simplicity, let's use a quick dialog with parameters
+        var result = await DialogService.OpenAsync<EditInventoryDialog>("Ajustar Inventario: " + item.Product?.Name,
+             new Dictionary<string, object> { { "InventoryItem", item } });
+
+        if (result == true)
+        {
+            await InventoryService.UpdateStockAsync(item.Id, item.QuantityOnHand, item.SafetyStock);
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Inventario Actualizado", Duration = 2000 });
+            await LoadData();
+        }
+    }
+}
