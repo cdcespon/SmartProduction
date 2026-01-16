@@ -1,7 +1,136 @@
 ﻿@page "/"
+@using Microsoft.EntityFrameworkCore
+@using SmartProduction.Data
+@using SmartProduction.Models
+@inject IDbContextFactory<AppDbContext> DbFactory
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Dashboard - SmartProduction</PageTitle>
 
-<h1>Hello, world!</h1>
+<RadzenText Text="Dashboard de Producción" TextStyle="TextStyle.H3" class="rz-mb-4" />
 
-Welcome to your new app.
+<div class="row">
+    <div class="col-md-4 p-3">
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.H6">Órdenes Activas</RadzenText>
+            <RadzenText TextStyle="TextStyle.DisplayH3" class="rz-color-primary">@activeOrdersCount</RadzenText>
+            <RadzenText TextStyle="TextStyle.Body2">En progreso o liberadas</RadzenText>
+        </RadzenCard>
+    </div>
+    <div class="col-md-4 p-3">
+        <RadzenCard Style="@(delayedOrdersCount > 0 ? "border-left: 5px solid var(--rz-danger)" : "")">
+             <RadzenText TextStyle="TextStyle.H6">Órdenes Atrasadas</RadzenText>
+             <RadzenText TextStyle="TextStyle.DisplayH3" class="rz-color-danger">@delayedOrdersCount</RadzenText>
+             <RadzenText TextStyle="TextStyle.Body2">Vencidas sin completar</RadzenText>
+        </RadzenCard>
+    </div>
+    <div class="col-md-4 p-3">
+        <RadzenCard>
+             <RadzenText TextStyle="TextStyle.H6">Alertas de Inventario</RadzenText>
+             <RadzenText TextStyle="TextStyle.DisplayH3" class="rz-color-warning">@lowStockCount</RadzenText>
+             <RadzenText TextStyle="TextStyle.Body2">Items bajo stock seguridad</RadzenText>
+        </RadzenCard>
+    </div>
+</div>
+
+<div class="row rz-mt-4">
+    <div class="col-md-8">
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.H5">Tendencia de Ventas (Último Año)</RadzenText>
+            <RadzenChart Style="height: 300px">
+                <RadzenLineSeries Smooth="true" Data="@salesTrend" CategoryProperty="Month" Title="Ventas" ValueProperty="Quantity" LineType="LineType.Solid">
+                    <RadzenMarkers MarkerType="MarkerType.Circle" />
+                </RadzenLineSeries>
+                <RadzenCategoryAxis Padding="20" FormatString="{0:MMM}" />
+                <RadzenValueAxis>
+                    <RadzenGridLines Visible="true" />
+                </RadzenValueAxis>
+            </RadzenChart>
+        </RadzenCard>
+    </div>
+    <div class="col-md-4">
+        <RadzenCard>
+             <RadzenText TextStyle="TextStyle.H5">Estado de Órdenes</RadzenText>
+             <RadzenChart Style="height: 300px">
+                 <RadzenDonutSeries Data="@orderStatusData" CategoryProperty="Status" ValueProperty="Count">
+                     <TitleTemplate>
+                         <div class="rz-donut-content">
+                             <div>Órdenes</div>
+                             <div>Totales</div>
+                         </div>
+                     </TitleTemplate>
+                 </RadzenDonutSeries>
+             </RadzenChart>
+        </RadzenCard>
+    </div>
+</div>
+
+@if (delayedOrders.Any())
+{
+    <RadzenText TextStyle="TextStyle.H5" class="rz-mt-4 rz-mb-2">⚠️ Atención Requerida: Órdenes Vencidas</RadzenText>
+    <RadzenDataGrid Data="@delayedOrders" TItem="WorkOrder" AllowPaging="true" PageSize="5" class="rz-shadow-1">
+        <Columns>
+            <RadzenDataGridColumn TItem="WorkOrder" Property="OrderNumber" Title="Orden #" Width="120px" />
+            <RadzenDataGridColumn TItem="WorkOrder" Property="Product.Name" Title="Producto" />
+            <RadzenDataGridColumn TItem="WorkOrder" Property="DueDate" Title="Fecha Vencimiento" FormatString="{0:d}" Width="150px" />
+            <RadzenDataGridColumn TItem="WorkOrder" Property="Status" Title="Estado" Width="120px" />
+        </Columns>
+    </RadzenDataGrid>
+}
+
+@code {
+    int activeOrdersCount;
+    int delayedOrdersCount;
+    int lowStockCount;
+    
+    class ChartData { public string Month { get; set; } = ""; public double Quantity { get; set; } }
+    List<ChartData> salesTrend = new();
+    
+    class StatusData { public string Status { get; set; } = ""; public int Count { get; set; } }
+    List<StatusData> orderStatusData = new();
+    
+    List<WorkOrder> delayedOrders = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+
+        // KPIs
+        activeOrdersCount = await context.WorkOrders
+            .CountAsync(wo => wo.Status != WorkOrderStatus.Completed && wo.Status != WorkOrderStatus.Cancelled);
+
+        delayedOrdersCount = await context.WorkOrders
+            .CountAsync(wo => wo.Status != WorkOrderStatus.Completed && wo.Status != WorkOrderStatus.Cancelled && wo.DueDate < DateTime.Today);
+
+        lowStockCount = await context.InventoryItems
+            .CountAsync(i => i.QuantityOnHand <= i.SafetyStock);
+
+        // Chart: Sales Trend (Grouped by Month)
+        var sales = await context.SalesHistory
+            .OrderBy(s => s.Date)
+            .ToListAsync();
+            
+        salesTrend = sales
+            .GroupBy(s => new { s.Date.Year, s.Date.Month })
+            .Select(g => new ChartData 
+            { 
+                Month = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM"), 
+                Quantity = (double)g.Sum(x => x.QuantitySold) 
+            })
+            .ToList();
+
+        // Chart: Order Status Distribution
+        var statusCounts = await context.WorkOrders
+            .GroupBy(wo => wo.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        orderStatusData = statusCounts.Select(s => new StatusData { Status = s.Status.ToString(), Count = s.Count }).ToList();
+
+        // List: Delayed Orders
+        delayedOrders = await context.WorkOrders
+            .Include(wo => wo.Product)
+            .Where(wo => wo.Status != WorkOrderStatus.Completed && wo.Status != WorkOrderStatus.Cancelled && wo.DueDate < DateTime.Today)
+            .OrderBy(wo => wo.DueDate)
+            .ToListAsync();
+    }
+}

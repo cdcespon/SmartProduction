@@ -24,8 +24,16 @@ builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<MRPService>();
 builder.Services.AddScoped<PredictionService>();
 builder.Services.AddScoped<SmartAssistantService>();
+builder.Services.AddScoped<DataSeeder>();
 
 var app = builder.Build();
+
+// Seed Data
+using (var scope = app.Services.CreateScope())
+{
+    var seeder = scope.ServiceProvider.GetRequiredService<DataSeeder>();
+    await seeder.SeedAsync();
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
