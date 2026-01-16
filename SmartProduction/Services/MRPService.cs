@@ -144,7 +144,7 @@ public class MRPService
         using var context = _contextFactory.CreateDbContext();
         return await context.MaterialRequirements
             .Include(r => r.Product)
-            .ThenInclude(p => p.UnitOfMeasure)
+            .ThenInclude(p => p!.UnitOfMeasure)
             .OrderBy(r => r.RequiredDate)
             .ToListAsync();
     }

@@ -18,7 +18,7 @@ public class InventoryService
         using var context = _contextFactory.CreateDbContext();
         var items = await context.InventoryItems
             .Include(i => i.Product)
-            .ThenInclude(p => p.UnitOfMeasure) // Include UoM for display
+            .ThenInclude(p => p!.UnitOfMeasure) // Include UoM for display
             .ToListAsync();
             
         // Si hay productos que no están en inventario, deberíamos agregarlos con stock 0 virtualmente o crearlos
@@ -43,7 +43,7 @@ public class InventoryService
             // Recargar lista actualizada
             return await context.InventoryItems
                 .Include(i => i.Product)
-                .ThenInclude(p => p.UnitOfMeasure)
+                .ThenInclude(p => p!.UnitOfMeasure)
                 .ToListAsync();
         }
 

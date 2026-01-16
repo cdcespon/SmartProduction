@@ -77,7 +77,7 @@
             var response = await AssistantService.ProcessQueryAsync(userMsg);
             messages.Add(new ChatMessage { Text = response, IsUser = false });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
              messages.Add(new ChatMessage { Text = "Lo siento, tuve un error procesando tu consulta.", IsUser = false });
         }

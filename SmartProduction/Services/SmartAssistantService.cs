@@ -19,7 +19,7 @@ public class SmartAssistantService
         using var context = _contextFactory.CreateDbContext();
         userQuery = userQuery.ToLower().Trim();
 
-        // 1. Intent: Consultar Stock ("cuanto tengo de X", "stock de Y")
+// 1. Intent: Consultar Stock ("cuanto tengo de X", "stock de Y")
         if (Regex.IsMatch(userQuery, @"(cuánto|cuanto|stock|inventario).*(de|del) (.*)"))
         {
             var match = Regex.Match(userQuery, @"(cuánto|cuanto|stock|inventario).*(de|del) (.*)");
@@ -27,12 +27,13 @@ public class SmartAssistantService
             
             var item = await context.InventoryItems
                 .Include(i => i.Product)
-                .ThenInclude(p => p.UnitOfMeasure)
-                .FirstOrDefaultAsync(i => EF.Functions.Like(i.Product.Name, $"%{productName}%"));
+                .ThenInclude(p => p!.UnitOfMeasure)
+                .FirstOrDefaultAsync(i => i.Product != null && EF.Functions.Like(i.Product.Name, $"%{productName}%"));
 
-            if (item != null)
+            if (item != null && item.Product != null)
             {
-                return $"El stock actual de **{item.Product.Name}** es de **{item.QuantityOnHand:N2} {item.Product.UnitOfMeasure.Abbreviation}**. (Stock Seguridad: {item.SafetyStock:N2})";
+                var uom = item.Product.UnitOfMeasure?.Abbreviation ?? "u";
+                return $"El stock actual de **{item.Product.Name}** es de **{item.QuantityOnHand:N2} {uom}**. (Stock Seguridad: {item.SafetyStock:N2})";
             }
             return $"Lo siento, no encontré ningún producto que coincida con '{productName}'.";
         }
@@ -50,7 +51,8 @@ public class SmartAssistantService
                 var msg = "⚠️ **Atención:** Hay órdenes atrasadas:\n";
                 foreach (var order in delayedOrders)
                 {
-                    msg += $"- **{order.OrderNumber}** ({order.Product.Name}): Vencía el {order.DueDate:d}\n";
+                    var prodName = order.Product?.Name ?? "Producto Desconocido";
+                    msg += $"- **{order.OrderNumber}** ({prodName}): Vencía el {order.DueDate:d}\n";
                 }
                 return msg;
             }
@@ -69,7 +71,8 @@ public class SmartAssistantService
 
             if (order != null)
             {
-                return $"La orden **{order.OrderNumber}** para {order.Product.Name} está en estado **{order.Status}**. Fecha entrega: {order.DueDate:d}";
+                var prodName = order.Product?.Name ?? "Producto Desconocido";
+                return $"La orden **{order.OrderNumber}** para {prodName} está en estado **{order.Status}**. Fecha entrega: {order.DueDate:d}";
             }
         }
         
@@ -78,7 +81,7 @@ public class SmartAssistantService
         {
             var reqs = await context.MaterialRequirements
                 .Include(r => r.Product)
-                .ThenInclude(p => p.UnitOfMeasure)
+                .ThenInclude(p => p!.UnitOfMeasure)
                 .Where(r => r.Type == RequirementType.Purchase && !r.IsProcessed)
                 .ToListAsync();
                 
@@ -87,7 +90,9 @@ public class SmartAssistantService
                 var msg = "🛒 **Sugerencias de Compra (según MRP):**\n";
                 foreach (var req in reqs.Take(5)) // Top 5
                 {
-                    msg += $"- {req.RequiredQuantity:N0} {req.Product.UnitOfMeasure.Abbreviation} de **{req.Product.Name}** (Para: {req.Reference})\n";
+                    var prodName = req.Product?.Name ?? "Producto Desconocido";
+                    var uom = req.Product?.UnitOfMeasure?.Abbreviation ?? "u";
+                    msg += $"- {req.RequiredQuantity:N0} {uom} de **{prodName}** (Para: {req.Reference})\n";
                 }
                 if (reqs.Count > 5) msg += $"... y {reqs.Count - 5} más.";
                 return msg;
